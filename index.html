@@ -87,16 +87,25 @@ function normalizeLine(line){
 
 function extractRequirements(text){
   const raw = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-  const actionRegex = /(작성|제시|설명|분석|비교|정의|선택|적용|포함|제출|평가|구분|설계|검증|정리|구성|제안|반영|첨부|업로드|기재|준수|충족)/;
-  const deadlineRegex = /(마감|기한|까지|deadline|due\s*date|제출일|\d{1,2}\s*\/\s*\d{1,2}|\d{4}\s*[.\-\/]\s*\d{1,2}\s*[.\-\/]\s*\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}\s*시(\s*\d{1,2}\s*분)?)/i;
+
+  // 과제 관련 행동/의무를 나타내는 단어 (한글 + 영어)
+  const actionRegex = /(작성|제시|설명|분석|비교|정의|선택|적용|포함|제출|평가|구분|설계|검증|정리|구성|제안|반영|첨부|업로드|기재|준수|충족|submit|deliverable|present|presentation|prepare|complete|include|upload|register|sign[\s-]?up|attend|format|requirement|required|must|should|need to|due|deadline|consultation|session|slide|assignment|grading|criteria|rubric)/i;
+
+  // 날짜/시간/마감 관련 패턴 (한글 + 영어)
+  const deadlineRegex = /(마감|기한|까지|due\s*date|제출일|\d{1,2}\s*\/\s*\d{1,2}|\d{4}\s*[.\-\/]\s*\d{1,2}\s*[.\-\/]\s*\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}\s*시(\s*\d{1,2}\s*분)?|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}\b|\d{1,2}(:\d{2})?\s*(am|pm)\b|\b(mon|tue|wed|thu|fri|sat|sun)(day)?\b)/i;
+
+  // "라벨: 내용" 형태의 구조화된 항목 (예: Deliverable: Slides, 제출 방식: PDF)
+  const structuredKeyValue = /^[A-Za-z가-힣][A-Za-z0-9가-힣\s]{1,40}:\s*\S/;
+
   let items = [];
 
   for (const line of raw){
     const cleaned = normalizeLine(line);
+    const isKeyValue = structuredKeyValue.test(cleaned);
     const hasAction = actionRegex.test(cleaned);
     const hasDeadline = deadlineRegex.test(cleaned);
 
-    if ((hasAction || hasDeadline) && cleaned.length >= 4 && cleaned.length <= 180) {
+    if ((isKeyValue || hasAction || hasDeadline) && cleaned.length >= 4 && cleaned.length <= 400) {
       items.push(cleaned);
     }
   }
