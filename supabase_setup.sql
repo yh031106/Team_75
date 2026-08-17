@@ -9,8 +9,11 @@ create table if not exists checklist_usage (
 
 alter table checklist_usage enable row level security;
 
-create policy "Allow anon insert"
+drop policy if exists "Allow anon insert" on checklist_usage;
+drop policy if exists "Allow public insert" on checklist_usage;
+
+create policy "Allow public insert"
   on checklist_usage
   for insert
-  to anon
+  to public
   with check (true);
