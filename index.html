@@ -87,28 +87,22 @@ function normalizeLine(line){
 
 function extractRequirements(text){
   const raw = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  const actionRegex = /(작성|제시|설명|분석|비교|정의|선택|적용|포함|제출|평가|구분|설계|검증|정리|구성|제안|반영|첨부|업로드|기재|준수|충족)/;
+  const deadlineRegex = /(마감|기한|까지|deadline|due\s*date|제출일|\d{1,2}\s*\/\s*\d{1,2}|\d{4}\s*[.\-\/]\s*\d{1,2}\s*[.\-\/]\s*\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일|\d{1,2}\s*시(\s*\d{1,2}\s*분)?)/i;
   let items = [];
 
   for (const line of raw){
-    const looksStructured = /^(\s*[-*•▪︎◦]|\s*\d+[\.\)]|\s*[①-⑳]|\s*\([0-9]+\))/.test(line);
-    const hasAction = /(작성|제시|설명|분석|비교|정의|선택|적용|포함|제출|평가|작성하|구분|설계|검증|정리|구성|제안|사용|반영)/.test(line);
     const cleaned = normalizeLine(line);
+    const hasAction = actionRegex.test(cleaned);
+    const hasDeadline = deadlineRegex.test(cleaned);
 
-    if ((looksStructured || hasAction) && cleaned.length >= 4 && cleaned.length <= 180) {
+    if ((hasAction || hasDeadline) && cleaned.length >= 4 && cleaned.length <= 180) {
       items.push(cleaned);
     }
   }
 
   // 중복 제거
   items = [...new Set(items)];
-
-  // 너무 적으면 문장 단위 보완
-  if (items.length < 3){
-    const sentences = text.split(/[.!?]\s+|\n+/)
-      .map(normalizeLine)
-      .filter(s => s.length >= 8 && s.length <= 180);
-    items = [...new Set([...items, ...sentences])].slice(0, 12);
-  }
 
   return items.slice(0, 15);
 }
