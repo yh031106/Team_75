@@ -140,7 +140,20 @@ function updateScore(){
   const boxes=[...list.querySelectorAll('input[type=checkbox]')];
   const done=boxes.filter(b=>b.checked).length;
   score.textContent=`${done} / ${boxes.length} 완료`;
-  if(boxes.length && done===boxes.length) track('checklist_completed',{item_count:boxes.length});
+  if(boxes.length && done===boxes.length){
+    track('checklist_completed',{item_count:boxes.length});
+    setTimeout(()=>{
+      alert('수고하셨습니다! 🎉');
+      resetToStart();
+    }, 150);
+  }
+}
+
+function resetToStart(){
+  input.value='';
+  list.innerHTML='';
+  result.style.display='none';
+  score.textContent='0 / 0 완료';
 }
 
 document.getElementById('generate').addEventListener('click',()=>{
