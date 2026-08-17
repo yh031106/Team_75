@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TaskLens - 과제 요구사항 체크리스트</title>
+  <meta name="description" content="긴 과제 안내문을 붙여넣으면 핵심 요구사항을 체크리스트로 정리해주는 MVP" />
+  <style>
+    :root{
+      --bg:#f6f7f9; --card:#fff; --text:#15171a; --muted:#69707a; --line:#e6e8eb;
+      --accent:#111827; --soft:#eef1f5;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Pretendard,Arial,sans-serif}
+    .wrap{max-width:920px;margin:0 auto;padding:56px 20px 80px}
+    .badge{display:inline-block;padding:7px 10px;border-radius:999px;background:var(--soft);font-size:13px}
+    h1{font-size:42px;line-height:1.15;margin:18px 0 10px;letter-spacing:-1.3px}
+    .lead{font-size:18px;color:var(--muted);line-height:1.7;margin-bottom:32px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 8px 28px rgba(0,0,0,.04)}
+    label{display:block;font-weight:700;margin-bottom:10px}
+    textarea{width:100%;min-height:260px;resize:vertical;border:1px solid var(--line);border-radius:14px;padding:16px;font-size:15px;line-height:1.65;outline:none}
+    textarea:focus{border-color:#9ca3af}
+    .row{display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap}
+    button{border:0;border-radius:12px;padding:13px 18px;font-weight:700;cursor:pointer}
+    .primary{background:var(--accent);color:white}
+    .secondary{background:var(--soft);color:var(--text)}
+    .hint{font-size:13px;color:var(--muted)}
+    #result{display:none;margin-top:24px}
+    .result-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+    .score{font-size:14px;color:var(--muted)}
+    ul{list-style:none;padding:0;margin:0}
+    li{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
+    li:last-child{border-bottom:0}
+    input[type=checkbox]{margin-top:4px;width:18px;height:18px}
+    .empty{padding:18px;background:#fafafa;border-radius:12px;color:var(--muted)}
+    .footer{margin-top:18px;font-size:12px;color:var(--muted)}
+    @media(max-width:640px){h1{font-size:34px}.wrap{padding-top:34px}.card{padding:18px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <span class="badge">MVP Prototype</span>
+    <h1>긴 과제 안내문,<br>체크리스트로 바로 바꿔봅시다!!</h1>
+    <p class="lead">과제 공지나 평가 기준을 붙여넣으면 제출 전에 확인할 핵심 요구사항만 빠르게 뽑아줘.</p>
+
+    <section class="card">
+      <label for="input">과제 안내문 붙여넣기</label>
+      <textarea id="input" placeholder="예) 1. 문제를 정의한다.&#10;2. AI 방법을 선택한다.&#10;- 선택 이유를 작성한다.&#10;- 한계와 대응 전략을 제시한다."></textarea>
+      <div class="row">
+        <button class="primary" id="generate">체크리스트 만들기</button>
+        <button class="secondary" id="sample">예시 넣기</button>
+        <span class="hint">개인정보는 입력하지 않는 것을 권장해.</span>
+      </div>
+
+      <section id="result">
+        <div class="result-head">
+          <strong>제출 체크리스트</strong>
+          <span class="score" id="score">0 / 0 완료</span>
+        </div>
+        <ul id="list"></ul>
+        <div class="row">
+          <button class="secondary" id="copy">체크리스트 복사</button>
+          <button class="secondary" id="reset">체크 해제</button>
+        </div>
+      </section>
+    </section>
+    <p class="footer">TaskLens v0.1 · 수업용 MVP 검증 프로토타입</p>
+  </main>
+
+<script>
+const input = document.getElementById('input');
+const result = document.getElementById('result');
+const list = document.getElementById('list');
+const score = document.getElementById('score');
+
+function track(eventName, params={}) {
+  if (typeof window.gtag === 'function') window.gtag('event', eventName, params);
+  console.log('[event]', eventName, params);
+}
+
+function normalizeLine(line){
+  return line
+    .replace(/^\s*(?:[-*•▪︎◦]|\d+[\.\)]|[①-⑳]|\([0-9]+\))\s*/,'')
+    .replace(/\*\*/g,'')
+    .trim();
+}
+
+function extractRequirements(text){
+  const raw = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  let items = [];
+
+  for (const line of raw){
+    const looksStructured = /^(\s*[-*•▪︎◦]|\s*\d+[\.\)]|\s*[①-⑳]|\s*\([0-9]+\))/.test(line);
+    const hasAction = /(작성|제시|설명|분석|비교|정의|선택|적용|포함|제출|평가|작성하|구분|설계|검증|정리|구성|제안|사용|반영)/.test(line);
+    const cleaned = normalizeLine(line);
+
+    if ((looksStructured || hasAction) && cleaned.length >= 4 && cleaned.length <= 180) {
+      items.push(cleaned);
+    }
+  }
+
+  // 중복 제거
+  items = [...new Set(items)];
+
+  // 너무 적으면 문장 단위 보완
+  if (items.length < 3){
+    const sentences = text.split(/[.!?]\s+|\n+/)
+      .map(normalizeLine)
+      .filter(s => s.length >= 8 && s.length <= 180);
+    items = [...new Set([...items, ...sentences])].slice(0, 12);
+  }
+
+  return items.slice(0, 15);
+}
+
+function render(items){
+  list.innerHTML='';
+  if(!items.length){
+    list.innerHTML='<div class="empty">요구사항을 찾기 어려워. 번호나 불릿이 포함된 과제 안내문을 붙여넣어 봐.</div>';
+    result.style.display='block';
+    score.textContent='0 / 0 완료';
+    return;
+  }
+
+  items.forEach((text, idx)=>{
+    const li=document.createElement('li');
+    const cb=document.createElement('input');
+    cb.type='checkbox';
+    cb.addEventListener('change', updateScore);
+    const span=document.createElement('span');
+    span.textContent=text;
+    li.append(cb, span);
+    list.appendChild(li);
+  });
+  result.style.display='block';
+  updateScore();
+}
+
+function updateScore(){
+  const boxes=[...list.querySelectorAll('input[type=checkbox]')];
+  const done=boxes.filter(b=>b.checked).length;
+  score.textContent=`${done} / ${boxes.length} 완료`;
+  if(boxes.length && done===boxes.length) track('checklist_completed',{item_count:boxes.length});
+}
+
+document.getElementById('generate').addEventListener('click',()=>{
+  const text=input.value.trim();
+  if(!text){ alert('과제 안내문을 먼저 붙여넣어 줘.'); return; }
+  const items=extractRequirements(text);
+  render(items);
+  track('checklist_generated',{item_count:items.length});
+});
+
+document.getElementById('sample').addEventListener('click',()=>{
+  input.value=`1. 전공 관련 의사결정 문제를 정확히 정의한다.
+2. 문제를 구조화하고 원인을 분석한다.
+3. 적합한 AI 의사결정 방법을 선택하고 적용한다.
+4. 선택한 방법의 이유를 설명한다.
+5. AI 방법의 한계를 분석한다.
+6. 한계에 대한 대응 전략을 설계한다.
+7. 최종 결과와 시사점을 정리한다.`;
+  track('sample_loaded');
+});
+
+document.getElementById('copy').addEventListener('click',async()=>{
+  const items=[...list.querySelectorAll('li span')].map((s,i)=>`- [ ] ${s.textContent}`);
+  if(!items.length) return;
+  await navigator.clipboard.writeText(items.join('\n'));
+  alert('체크리스트를 복사했어.');
+  track('checklist_copied',{item_count:items.length});
+});
+
+document.getElementById('reset').addEventListener('click',()=>{
+  list.querySelectorAll('input[type=checkbox]').forEach(b=>b.checked=false);
+  updateScore();
+  track('checklist_reset');
+});
+</script>
+</body>
+</html>
