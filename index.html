@@ -85,6 +85,68 @@ function normalizeLine(line){
     .trim();
 }
 
+function condenseClause(raw){
+  let t = raw;
+  let obligation = false;
+  let optional = false;
+
+  const fillerLead = [/^총\s*/, /^참고로\s*/, /^그리고\s*/, /^또한\s*/, /^아울러\s*/,
+    /^please\s+/i, /^kindly\s+/i, /^note that\s+/i, /^make sure to\s+/i, /^you (?:should|must|need to)\s+/i];
+  for (const re of fillerLead) t = t.replace(re, '');
+
+  const obligationEndings = /(?:(?:해|하)\s*주셔야\s*합니다|(?:하|되)셔야\s*합니다|(?:해|하)야\s*합니다|(?:하|되)여야\s*합니다)\.?/;
+  const optionalEndings = /(?:선택사항(?:입니다|이며)?|선택입니다)\.?/;
+  const requiredEndings = /(?:필수사항(?:입니다|이며)?|필수입니다)\.?/;
+
+  if (obligationEndings.test(t)) { obligation = true; t = t.replace(obligationEndings, ''); }
+  if (optionalEndings.test(t)) { optional = true; t = t.replace(optionalEndings, ''); }
+  if (requiredEndings.test(t)) { obligation = true; t = t.replace(requiredEndings, ''); }
+
+  const softEndings = [
+    /(?:해|하)\s*주(?:시면|시기)?\s*됩니다\.?/g,
+    /(?:해|하)\s*주세요\.?/g,
+    /주시기\s*바랍니다\.?/g,
+    /부탁\s*드립니다\.?/g,
+    /(?:하|되)시기\s*바랍니다\.?/g,
+    /바랍니다\.?/g,
+    /됩니다\.?$/g,
+    /합니다\.?$/g,
+    /입니다\.?$/g,
+  ];
+  for (const re of softEndings) t = t.replace(re, '');
+
+  // 자주 쓰이는 지시 동사 축약
+  t = t.replace(/(?:적어|기재해|작성해|써)\s*주(?:시면|세요|시기\s*바랍니다)?/g, '작성');
+  t = t.replace(/첨부한\s*/g, '첨부 ');
+  t = t.replace(/선택사항$/, '선택').replace(/필수사항$/, '필수');
+
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  t = t.replace(/^[,.]+|[,.]+$/g, '').trim();
+
+  if (obligation && !/필수/.test(t)) t = (t ? t + ' 필수' : '필수');
+  if (optional && !/선택/.test(t)) t = (t ? t + ' 선택' : '선택');
+
+  return t.trim();
+}
+
+function condenseText(text){
+  const clauses = text
+    .split(/,\s*|되고\s*|하고\s*|이고\s*|이며\s*|며\s*/)
+    .map(condenseClause)
+    .filter(Boolean);
+
+  let result = clauses.length ? clauses.join(', ') : text;
+
+  const MAX = 60;
+  if (result.length > MAX){
+    const cut = result.slice(0, MAX);
+    const lastSpace = cut.lastIndexOf(' ');
+    result = (lastSpace > 20 ? cut.slice(0, lastSpace) : cut) + '…';
+  }
+
+  return result;
+}
+
 function extractRequirements(text){
   const raw = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
 
@@ -131,7 +193,8 @@ function render(items){
     cb.type='checkbox';
     cb.addEventListener('change', updateScore);
     const span=document.createElement('span');
-    span.textContent=text;
+    span.textContent=condenseText(text);
+    if(span.textContent!==text) span.title=text;
     li.append(cb, span);
     list.appendChild(li);
   });
